@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Registered Voters by Election Date and Type</title>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Time adapter -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+  <!-- PapaParse -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+    canvas {
+      max-width: 1000px;
+      margin-top: 20px;
+    }
+    select {
+      padding: 6px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Registered Voters In Cambridge MA by Election Date and Type from 1999-2025</h2>
+
+
+<p>
+  <label for="typeFilter"><strong>Election Type:</strong></label>
+  <select id="typeFilter">
+    <option value="All">All</option>
+  </select>
+</p>
+
+<canvas id="voterChart"></canvas>
+
+<script>
+  const colorPalette = [
+  "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+  "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+  "#bcbd22", "#17becf"
+];
+
+const typeColorMap = {};
+
+function getColorForType(type) {
+  if (!typeColorMap[type]) {
+    const index = Object.keys(typeColorMap).length % colorPalette.length;
+    typeColorMap[type] = colorPalette[index];
+  }
+  return typeColorMap[type];
+}
+
+function normalizeType(type) {
+  return String(type || "").trim();
+}
+  function normalizeType(type) {
+  return type.trim();
+}
+  const typeFilter = document.getElementById("typeFilter");
+  const ctx = document.getElementById("voterChart").getContext("2d");
+  const electionColors = {
+  "Sate/Presidential": "#1f77b4", 
+  "State Primary": "#ff7f0e", 
+  "Special State Election": "#2ca02c", 
+  "Special State Primary": "#d62728",
+  "Municipal": "#9467bd",
+  "State Election": "#8c564b",
+  "Special State Election (U.S. Senate)": "#e377c2",
+  "Special State Election (State Rep)": "#7f7f7f",
+};
+
+  let rawData = [];
+  let chart = null;
+
+Papa.parse("Voter_Turnout,_1999_-_Present_20251212.csv", {
+  download: true,
+  header: true,
+  dynamicTyping: true,
+  skipEmptyLines: true,
+  complete: function (results) {
+    rawData = results.data
+      .filter(d => d["Election Date"] && d["Number Registered"])
+      .map(d => ({
+        ...d,
+        "Election Type": normalizeType(d["Election Type"])
+      }));
+
+    populateDropdown();
+    drawChart("All");
+  },
+  error: function (err) {
+    console.error("Error loading CSV:", err);
+  }
+});
+
+  typeFilter.addEventListener("change", function () {
+    drawChart(this.value);
+  });
+
+  function populateDropdown() {
+    const types = [...new Set(rawData.map(d => d["Election Type"]))];
+
+    typeFilter.innerHTML = '<option value="All">All</option>';
+
+    types.forEach(type => {
+      const opt = document.createElement("option");
+      opt.value = type;
+      opt.textContent = type;
+      typeFilter.appendChild(opt);
+    });
+  }
+
+  function drawChart(selectedType) {
+    const filtered =
+      selectedType === "All"
+        ? rawData
+        : rawData.filter(d => d["Election Type"] === selectedType);
+
+    const grouped = {};
+
+    filtered.forEach(d => {
+      if (!grouped[d["Election Type"]]) {
+        grouped[d["Election Type"]] = [];
+      }
+      grouped[d["Election Type"]].push({
+        x: new Date(d["Election Date"]),
+        y: d["Number Registered"]
+      });
+    });
+
+    const datasets = Object.keys(grouped).map(type => ({
+     label: type,
+      data: grouped[type].sort((a, b) => a.x - b.x),
+      fill: false,
+      tension: 0.2,
+      borderWidth: 2,
+      pointRadius: 3,
+      borderColor: electionColors[type] || "#999",
+      backgroundColor: electionColors[type] || "#999"
+}));
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+      type: "line",
+      data: { datasets },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "top" },
+          tooltip: {
+            callbacks: {
+              label: ctx =>
+                `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: "time",
+            time: { unit: "year" },
+            title: {
+              display: true,
+              text: "Election Date"
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: "Number Registered"
+            }
+          }
+        }
+      }
+    });
+  }
+</script>
+<h3>Project Report</h3>
+<iframe
+  src="24743 Final Project Documentation Page.docx"
+  width="100%"
+  height="700"
+  style="border: 1px solid #ccc;">
+</iframe>
+<video width="800" controls>
+  <source src="Registered Voters Video.mp4" type="video/mp4">
+</video>
+</body>
+</html>
